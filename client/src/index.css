@@ -87,15 +87,9 @@ body {
 }
 
 .login-brand-logo {
-  width: 56px;
-  height: 56px;
-  background: rgba(255,255,255,0.15);
-  border-radius: 16px;
-  margin-bottom: 8px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  width: 280px;
+  height: auto;
+  margin-bottom: 24px;
 }
 
 .login-brand-title {
