@@ -46,6 +46,8 @@ export default function MapPage() {
 
   useEffect(() => {
     loadIncidents();
+    const interval = setInterval(loadIncidents, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   // Init map

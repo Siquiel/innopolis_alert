@@ -1235,7 +1235,9 @@ async def map_incident_desc(message: Message, state: FSMContext) -> None:
 
 @router.message(MapIncidentState.waiting_coords)
 async def map_incident_coords(message: Message, state: FSMContext, pg_sync) -> None:
-    parts = (message.text or "").strip().replace(",", ".").split()
+    # Support both "55.7525 48.7442" and Google Maps "55.7525, 48.7442" formats
+    raw = (message.text or "").strip().replace(", ", " ").replace(",", ".")
+    parts = raw.split()
     if len(parts) != 2:
         await message.answer("Неверный формат. Нужно: широта долгота  (два числа через пробел)")
         return
