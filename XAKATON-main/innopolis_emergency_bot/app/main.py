@@ -60,6 +60,10 @@ async def main() -> None:
 
     dp.update.middleware(inject_dependencies)
 
+    # Синхронизируем чаты из SQLite → PostgreSQL при старте (на случай перезапуска)
+    for chat in storage.list_chats(active_only=True):
+        await pg_sync.register_chat_to_pg(int(chat['chat_id']), chat['title'] or str(chat['chat_id']))
+
     # Синхронизируем шаблоны с веб-портала в SQLite при старте
     await pg_sync.sync_templates_to_sqlite(storage)
 

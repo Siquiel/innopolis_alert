@@ -258,11 +258,7 @@ app.get('/api/admin/export', authMiddleware, superuser, async (req, res) => {
   res.send(buf);
 });
 
-// ── Публичная карта (без авторизации) ────────────────────────────────────────
-
-app.get('/public-map', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'map.html'));
-});
+// ── Публичная карта (без авторизации) — React SPA обрабатывает роут ──────────
 
 // Публичный API только для чтения карты
 app.get('/api/public/map/incidents', async (req, res) => {

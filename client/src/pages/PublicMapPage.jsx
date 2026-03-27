@@ -1,0 +1,223 @@
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+delete L.Icon.Default.prototype._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: new URL('leaflet/dist/images/marker-icon-2x.png', import.meta.url).href,
+  iconUrl: new URL('leaflet/dist/images/marker-icon.png', import.meta.url).href,
+  shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
+});
+
+const INNOPOLIS = [55.7525, 48.7442];
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+export default function PublicMapPage() {
+  const navigate = useNavigate();
+  const mapRef = useRef(null);
+  const mapInstance = useRef(null);
+  const markersRef = useRef([]);
+  const [incidents, setIncidents] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [lastUpdate, setLastUpdate] = useState(null);
+
+  const loadIncidents = async () => {
+    try {
+      const r = await fetch(`${API_BASE}/api/public/map/incidents`);
+      if (r.ok) {
+        setIncidents(await r.json());
+        setLastUpdate(new Date());
+      }
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    loadIncidents();
+    const interval = setInterval(loadIncidents, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstance.current) return;
+    mapInstance.current = L.map(mapRef.current, { attributionControl: false }).setView(INNOPOLIS, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(mapInstance.current);
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapInstance.current) return;
+    markersRef.current.forEach(m => m.remove());
+    markersRef.current = [];
+
+    incidents.forEach(inc => {
+      const color = inc.danger_color || '#ef4444';
+      const marker = L.circleMarker([inc.lat, inc.lon], {
+        radius: 12,
+        fillColor: color,
+        color: '#fff',
+        weight: 2,
+        opacity: 1,
+        fillOpacity: 0.85,
+      }).addTo(mapInstance.current);
+
+      marker.bindPopup(`
+        <div style="min-width:180px">
+          <strong style="font-size:14px">${inc.title}</strong><br/>
+          ${inc.emergency_type_name ? `<span style="color:#6b7280;font-size:12px">${inc.emergency_type_name}</span><br/>` : ''}
+          ${inc.danger_level_name ? `<span style="color:${color};font-size:12px;font-weight:600">${inc.danger_level_name}</span><br/>` : ''}
+          ${inc.description ? `<p style="margin:6px 0 0;font-size:13px">${inc.description}</p>` : ''}
+          <p style="margin:4px 0 0;font-size:11px;color:#9ca3af">
+            Статус: ${inc.status === 'active' ? 'Активный' : 'Завершён'}
+          </p>
+        </div>
+      `);
+      marker.on('click', () => setSelected(inc));
+      markersRef.current.push(marker);
+    });
+  }, [incidents]);
+
+  const activeCount = incidents.filter(i => i.status === 'active').length;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'system-ui, sans-serif', background: '#f8fafc' }}>
+      {/* Header */}
+      <header style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 20px', height: 56, background: '#1e293b', color: '#fff', flexShrink: 0,
+        boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 20 }}>🗺️</span>
+          <span style={{ fontWeight: 700, fontSize: 16 }}>Карта ЧС — Иннополис</span>
+          {activeCount > 0 && (
+            <span style={{
+              background: '#ef4444', color: '#fff', borderRadius: 999,
+              fontSize: 11, fontWeight: 700, padding: '2px 8px',
+            }}>
+              {activeCount} активных
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {lastUpdate && (
+            <span style={{ fontSize: 12, color: '#94a3b8', alignSelf: 'center' }}>
+              Обновлено: {lastUpdate.toLocaleTimeString('ru')}
+            </span>
+          )}
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              background: '#3b82f6', color: '#fff', border: 'none',
+              borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+            }}
+          >
+            Войти в портал
+          </button>
+        </div>
+      </header>
+
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        {/* Sidebar */}
+        <div style={{
+          width: 280, background: '#fff', borderRight: '1px solid #e2e8f0',
+          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}>
+            <h3 style={{ margin: 0, fontSize: 14, color: '#1e293b', fontWeight: 700 }}>
+              Инциденты ЧС
+            </h3>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748b' }}>
+              Активных: {activeCount} из {incidents.length}
+            </p>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1 }}>
+            {incidents.length === 0 && (
+              <p style={{ padding: 16, fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>
+                Нет активных инцидентов
+              </p>
+            )}
+            {incidents.map(inc => (
+              <div
+                key={inc.id}
+                onClick={() => {
+                  setSelected(inc);
+                  mapInstance.current?.setView([inc.lat, inc.lon], 15);
+                }}
+                style={{
+                  padding: '12px 16px',
+                  cursor: 'pointer',
+                  borderBottom: '1px solid #f1f5f9',
+                  background: selected?.id === inc.id ? '#f1f5f9' : 'transparent',
+                  transition: 'background 0.15s',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    width: 10, height: 10, borderRadius: '50%',
+                    background: inc.danger_color || '#ef4444', flexShrink: 0,
+                  }} />
+                  <strong style={{ fontSize: 13, color: '#1e293b' }}>{inc.title}</strong>
+                </div>
+                {inc.emergency_type_name && (
+                  <p style={{ margin: '3px 0 0 18px', fontSize: 11, color: '#64748b' }}>
+                    {inc.emergency_type_name}
+                    {inc.danger_level_name && ` · ${inc.danger_level_name}`}
+                  </p>
+                )}
+                <p style={{ margin: '2px 0 0 18px', fontSize: 11, color: inc.status === 'active' ? '#16a34a' : '#94a3b8' }}>
+                  {inc.status === 'active' ? 'Активный' : 'Завершён'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Map */}
+        <div ref={mapRef} style={{ flex: 1 }} />
+      </div>
+
+      {/* Detail panel */}
+      {selected && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24,
+          background: '#fff', border: '1px solid #e2e8f0',
+          borderRadius: 12, padding: '16px 20px',
+          minWidth: 260, maxWidth: 320,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.12)', zIndex: 1000,
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <strong style={{ fontSize: 15, color: '#1e293b' }}>{selected.title}</strong>
+            <button onClick={() => setSelected(null)} style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 18, color: '#94a3b8', padding: 0, lineHeight: 1,
+            }}>×</button>
+          </div>
+          {selected.emergency_type_name && (
+            <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>
+              {selected.emergency_type_name}
+            </p>
+          )}
+          {selected.danger_level_name && (
+            <p style={{ margin: '4px 0 0', fontSize: 13, fontWeight: 600, color: selected.danger_color || '#ef4444' }}>
+              {selected.danger_level_name}
+            </p>
+          )}
+          {selected.description && (
+            <p style={{ margin: '8px 0 0', fontSize: 13, color: '#374151', lineHeight: 1.5 }}>
+              {selected.description}
+            </p>
+          )}
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: selected.status === 'active' ? '#16a34a' : '#94a3b8' }}>
+            Статус: {selected.status === 'active' ? 'Активный' : 'Завершён'}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
