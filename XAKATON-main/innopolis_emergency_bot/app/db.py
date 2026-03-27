@@ -280,12 +280,21 @@ class Storage:
         return self.fetchone("SELECT * FROM managed_chats WHERE chat_id = ?", (chat_id,))
 
     def list_chats(self, active_only: bool = False) -> list[sqlite3.Row]:
-        sql = "SELECT * FROM managed_chats"
-        params: tuple[Any, ...] = ()
-        if active_only:
-            sql += " WHERE is_active = 1"
-        sql += " ORDER BY is_active DESC, title COLLATE NOCASE"
-        return self.fetchall(sql, params)
+        # Deduplicate by title — keep the most recently seen chat_id per title
+        # (handles group→supergroup migration where chat_id changes but title stays the same)
+        active_filter = "AND is_active = 1" if active_only else ""
+        sql = f"""
+            SELECT * FROM managed_chats mc
+            WHERE mc.chat_id = (
+                SELECT chat_id FROM managed_chats
+                WHERE title = mc.title
+                ORDER BY last_seen_at DESC, chat_id DESC
+                LIMIT 1
+            )
+            {active_filter}
+            ORDER BY mc.is_active DESC, mc.title COLLATE NOCASE
+        """
+        return self.fetchall(sql, ())
 
     # Types and levels
     def add_emergency_type(self, name: str, description: str) -> int:

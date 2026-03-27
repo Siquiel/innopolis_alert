@@ -132,11 +132,16 @@ class PgSync:
             return
         try:
             async with conn.cursor() as cur:
+                # Remove old duplicate entries with the same name but different chat_id
+                await cur.execute(
+                    "DELETE FROM telegram_chats WHERE name = %s AND chat_id != %s",
+                    (title or "", chat_id),
+                )
                 await cur.execute(
                     """
                     INSERT INTO telegram_chats (chat_id, name, active)
                     VALUES (%s, %s, %s)
-                    ON CONFLICT (chat_id) DO UPDATE SET name = EXCLUDED.name
+                    ON CONFLICT (chat_id) DO UPDATE SET name = EXCLUDED.name, active = EXCLUDED.active
                     """,
                     (chat_id, title or "", active),
                 )
