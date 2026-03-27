@@ -52,7 +52,7 @@ export default function Login() {
     <div className="login-page">
       {/* Левая панель — брендинг */}
       <div className="login-brand">
-        <img src={logoSrc} alt="InnoAlert" style={{ width: '320px', maxWidth: '80%', filter: 'brightness(0) invert(1)', marginBottom: '24px' }} />
+        <img src={logoSrc} alt="InnoAlert" style={{ width: '420px', maxWidth: '90%', filter: 'brightness(0) invert(1)', marginBottom: '16px' }} />
         <h2 className="login-brand-title">InnoAlert</h2>
         <p className="login-brand-sub">Система оповещения об экстренных ситуациях</p>
       </div>
