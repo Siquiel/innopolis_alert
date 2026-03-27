@@ -1,0 +1,8 @@
+{
+  "name": "innopolis-alert",
+  "version": "1.0.0",
+  "scripts": {
+    "postinstall": "npm install --prefix client && npm run build --prefix client && npm install --prefix server",
+    "start": "node server/index.js"
+  }
+}
