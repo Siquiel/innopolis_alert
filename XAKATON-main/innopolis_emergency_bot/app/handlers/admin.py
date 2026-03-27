@@ -1302,24 +1302,28 @@ async def _save_map_incident(message: Message, state: FSMContext, pg_sync, data:
 @router.callback_query(F.data == "home:monitor")
 async def menu_monitor(callback: CallbackQuery, storage, pg_sync) -> None:
     await callback.answer()
-    # Пытаемся получить активные инциденты с карты ЧС из PostgreSQL
     map_incidents = []
     if pg_sync and pg_sync.enabled:
         map_incidents = await pg_sync.fetch_active_map_incidents(limit=10)
 
     if map_incidents:
-        lines = [f"<b>🗺 Активные инциденты на карте ЧС</b> ({len(map_incidents)})\n"]
+        from aiogram.utils.keyboard import InlineKeyboardBuilder
+        lines = [f"<b>Активные инциденты на карте ЧС</b> ({len(map_incidents)})\n"]
         for inc in map_incidents:
-            dot = "🔴" if inc.get("danger_color") else "🟠"
             type_label = inc.get("emergency_type_name") or ""
             level_label = inc.get("danger_level_name") or ""
             meta = " · ".join(filter(None, [type_label, level_label]))
-            lines.append(f"{dot} <b>{inc['title']}</b>")
-            if meta:
-                lines.append(f"   {meta}")
+            lines.append(f"• <b>{inc['title']}</b>" + (f" — {meta}" if meta else ""))
         text = "\n".join(lines)
+        builder = InlineKeyboardBuilder()
+        for inc in map_incidents:
+            builder.button(text=f"Завершить: {inc['title'][:25]}", callback_data=f"inc_resolve:{inc['id']}")
+        for inc in map_incidents:
+            builder.button(text=f"Удалить: {inc['title'][:25]}", callback_data=f"inc_delete:{inc['id']}")
+        builder.button(text="⬅️ Назад", callback_data="nav:home")
+        builder.adjust(1)
+        await _safe_edit_message(callback.message, text, reply_markup=builder.as_markup())
     else:
-        # Fallback: SQLite alerts
         alerts = storage.list_recent_alerts(5)
         if alerts:
             lines = [f"<b>Последние алерты мониторинга</b>\n"]
@@ -1328,8 +1332,31 @@ async def menu_monitor(callback: CallbackQuery, storage, pg_sync) -> None:
             text = "\n".join(lines)
         else:
             text = "<b>Мониторинг</b>\n\nАктивных инцидентов нет.\n\nДобавьте инциденты через <b>Карта ЧС</b> или веб-портал."
+        await _safe_edit_message(callback.message, text, reply_markup=back_home_kb())
 
-    await _safe_edit_message(callback.message, text, reply_markup=back_home_kb())
+
+@router.callback_query(F.data.startswith("inc_resolve:"))
+async def monitor_resolve_incident(callback: CallbackQuery, storage, pg_sync) -> None:
+    if not _admin_guard(callback, storage):
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+    incident_id = int(callback.data.split(":", 1)[1])
+    await callback.answer()
+    ok = await pg_sync.resolve_map_incident(incident_id)
+    msg = "Инцидент завершён." if ok else "Ошибка при обновлении."
+    await _safe_edit_message(callback.message, msg, reply_markup=back_home_kb())
+
+
+@router.callback_query(F.data.startswith("inc_delete:"))
+async def monitor_delete_incident(callback: CallbackQuery, storage, pg_sync) -> None:
+    if not _admin_guard(callback, storage):
+        await callback.answer("Нет доступа", show_alert=True)
+        return
+    incident_id = int(callback.data.split(":", 1)[1])
+    await callback.answer()
+    ok = await pg_sync.delete_map_incident(incident_id)
+    msg = "Инцидент удалён с карты." if ok else "Ошибка при удалении."
+    await _safe_edit_message(callback.message, msg, reply_markup=back_home_kb())
 
 
 @router.callback_query(F.data == "home:status")

@@ -132,11 +132,6 @@ class PgSync:
             return
         try:
             async with conn.cursor() as cur:
-                # Remove old duplicate entries with the same name but different chat_id
-                await cur.execute(
-                    "DELETE FROM telegram_chats WHERE name = %s AND chat_id != %s",
-                    (title or "", chat_id),
-                )
                 await cur.execute(
                     """
                     INSERT INTO telegram_chats (chat_id, name, active)
@@ -374,6 +369,50 @@ class PgSync:
         except Exception:
             logger.exception("PgSync: fetch_active_map_incidents failed")
             return []
+        finally:
+            await conn.close()
+
+    # ── Управление инцидентами карты ─────────────────────────────────────────
+
+    async def resolve_map_incident(self, incident_id: int) -> bool:
+        """Помечает инцидент на карте как завершённый."""
+        if not self.enabled:
+            return False
+        conn = await self._connect()
+        if not conn:
+            return False
+        try:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "UPDATE map_incidents SET status = 'resolved' WHERE id = %s",
+                    (incident_id,),
+                )
+            await conn.commit()
+            return True
+        except Exception:
+            logger.exception("PgSync: resolve_map_incident failed")
+            return False
+        finally:
+            await conn.close()
+
+    async def delete_map_incident(self, incident_id: int) -> bool:
+        """Удаляет инцидент с карты."""
+        if not self.enabled:
+            return False
+        conn = await self._connect()
+        if not conn:
+            return False
+        try:
+            async with conn.cursor() as cur:
+                await cur.execute(
+                    "DELETE FROM map_incidents WHERE id = %s",
+                    (incident_id,),
+                )
+            await conn.commit()
+            return True
+        except Exception:
+            logger.exception("PgSync: delete_map_incident failed")
+            return False
         finally:
             await conn.close()
 
