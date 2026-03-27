@@ -269,6 +269,7 @@ app.get('/api/public/map/incidents', async (req, res) => {
       FROM map_incidents mi
       LEFT JOIN emergency_types et ON et.id = mi.emergency_type_id
       LEFT JOIN danger_levels dl ON dl.id = mi.danger_level_id
+      WHERE mi.status = 'active'
       ORDER BY mi.created_at DESC
     `);
     res.json(r.rows);

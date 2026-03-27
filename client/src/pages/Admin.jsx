@@ -626,7 +626,11 @@ function MapTab() {
     if (r3.ok) setDangerLevels(await r3.json());
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    const interval = setInterval(load, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Init map once
   useEffect(() => {
@@ -653,12 +657,20 @@ function MapTab() {
     markersRef.current = [];
 
     incidents.forEach(inc => {
-      const color = inc.danger_color || '#ef4444';
+      const isPending = inc.status === 'pending';
+      const color = isPending ? '#f59e0b' : (inc.danger_color || '#ef4444');
       const marker = L.circleMarker([inc.lat, inc.lon], {
-        radius: 12, fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.85,
+        radius: 12, fillColor: color,
+        color: isPending ? '#d97706' : '#fff',
+        weight: isPending ? 3 : 2,
+        opacity: 1, fillOpacity: isPending ? 0.65 : 0.85,
+        dashArray: isPending ? '5,4' : null,
       }).addTo(mapInstance.current);
 
-      marker.bindTooltip(inc.title, { permanent: false, direction: 'top' });
+      marker.bindTooltip(
+        isPending ? `⏳ ${inc.title} (ожидает публикации)` : inc.title,
+        { permanent: false, direction: 'top' }
+      );
       marker.on('click', (e) => {
         L.DomEvent.stopPropagation(e);
         setForm({
@@ -719,7 +731,14 @@ function MapTab() {
           <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-main)' }}>Карта ЧС</span>
           <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Нажмите на карту — добавить. На маркер — редактировать.</span>
         </div>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Инцидентов: {incidents.length}</span>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {incidents.filter(i => i.status === 'pending').length > 0 && (
+            <span style={{ background: '#f59e0b', color: '#fff', borderRadius: 999, fontSize: 11, fontWeight: 700, padding: '2px 8px' }}>
+              ⏳ {incidents.filter(i => i.status === 'pending').length} ожидают публикации
+            </span>
+          )}
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Всего: {incidents.length}</span>
+        </div>
       </div>
       <div ref={mapRef} style={{ flex: 1 }} />
 
@@ -750,7 +769,8 @@ function MapTab() {
           <div className="form-group">
             <label className="form-label">Статус</label>
             <select className="form-select" value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}>
-              <option value="active">Активный</option>
+              <option value="pending">Ожидает публикации (только admin)</option>
+              <option value="active">Активный (публичная карта)</option>
               <option value="resolved">Завершён</option>
             </select>
           </div>
@@ -767,6 +787,21 @@ function MapTab() {
             )}
             <div style={{ display: 'flex', gap: 8 }}>
               <button className="btn-cancel" onClick={closeModal}>Отмена</button>
+              {modal !== 'add' && modal.status === 'pending' && (
+                <button
+                  className="btn-save"
+                  style={{ background: '#16a34a' }}
+                  onClick={async () => {
+                    await fetch(`${API_BASE}/api/map/incidents/${modal.id}`, {
+                      method: 'PUT', headers: jsonHeaders(),
+                      body: JSON.stringify({ ...form, status: 'active', lat: modal.lat, lon: modal.lon }),
+                    });
+                    setModal(null); load();
+                  }}
+                >
+                  Опубликовать
+                </button>
+              )}
               <button className="btn-save" onClick={save} disabled={!form.title.trim()}>Сохранить</button>
             </div>
           </div>

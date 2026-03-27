@@ -121,6 +121,28 @@ class PgSync:
         finally:
             conn.close()
 
+    # ── Получение всех чатов из PostgreSQL ───────────────────────────────────
+
+    async def fetch_all_pg_chats(self) -> list[dict]:
+        """Возвращает все активные чаты из PostgreSQL для синхронизации в SQLite."""
+        if not self.enabled:
+            return []
+        conn = await self._connect()
+        if not conn:
+            return []
+        try:
+            import psycopg.rows
+            async with conn.cursor(row_factory=psycopg.rows.dict_row) as cur:
+                await cur.execute(
+                    "SELECT chat_id, name FROM telegram_chats WHERE active = TRUE"
+                )
+                return list(await cur.fetchall())
+        except Exception:
+            logger.exception("PgSync: fetch_all_pg_chats failed")
+            return []
+        finally:
+            await conn.close()
+
     # ── Регистрация чата в PostgreSQL ────────────────────────────────────────
 
     async def register_chat_to_pg(self, chat_id: int, title: str, active: bool = True) -> None:
@@ -306,7 +328,7 @@ class PgSync:
                 await cur.execute(
                     """
                     INSERT INTO map_incidents (title, description, lat, lon, emergency_type_id, status)
-                    VALUES (%s, %s, %s, %s, %s, 'active')
+                    VALUES (%s, %s, %s, %s, %s, 'pending')
                     """,
                     (title, description or "", lat, lon, emergency_type_id),
                 )

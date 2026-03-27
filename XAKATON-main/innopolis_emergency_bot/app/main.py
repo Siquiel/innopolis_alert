@@ -60,7 +60,10 @@ async def main() -> None:
 
     dp.update.middleware(inject_dependencies)
 
-    # Синхронизируем чаты из SQLite → PostgreSQL при старте (на случай перезапуска)
+    # Синхронизируем чаты PostgreSQL → SQLite при старте (Railway контейнер эфемерный)
+    for pg_chat in await pg_sync.fetch_all_pg_chats():
+        storage.upsert_managed_chat(int(pg_chat['chat_id']), pg_chat['name'] or str(pg_chat['chat_id']), 'group')
+    # Синхронизируем чаты из SQLite → PostgreSQL (на случай если в SQLite есть новые)
     for chat in storage.list_chats(active_only=True):
         await pg_sync.register_chat_to_pg(int(chat['chat_id']), chat['title'] or str(chat['chat_id']))
 
