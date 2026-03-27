@@ -52,20 +52,10 @@ export default function Login() {
       {/* Левая панель — брендинг */}
       <div className="login-brand">
         <div className="login-brand-logo">
-          <svg viewBox="0 0 56 56" fill="none" xmlns="http://www.w3.org/2000/svg" style={{width:'100%',height:'100%',padding:'10px'}}>
-            <path d="M28 8L8 44h40L28 8z" fill="rgba(34,197,94,0.9)" stroke="#fff" strokeWidth="2.5" strokeLinejoin="round"/>
-            <rect x="25" y="26" width="6" height="10" rx="1.5" fill="#fff"/>
-            <rect x="25" y="20" width="6" height="5" rx="1.5" fill="#fff"/>
-          </svg>
+          <img src="/logo.png" alt="InnoAlert" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
         <h2 className="login-brand-title">InnoAlert</h2>
         <p className="login-brand-sub">Система оповещения об экстренных ситуациях</p>
-        <div className="login-brand-badges">
-          <span className="login-badge">Пожар</span>
-          <span className="login-badge">Наводнение</span>
-          <span className="login-badge">ЧС</span>
-          <span className="login-badge">Оповещение</span>
-        </div>
       </div>
 
       {/* Правая панель — форма */}
