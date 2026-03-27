@@ -10,11 +10,21 @@ L.Icon.Default.mergeOptions({
   shadowUrl: new URL('leaflet/dist/images/marker-shadow.png', import.meta.url).href,
 });
 
+function useTheme() {
+  const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
+  useEffect(() => {
+    document.body.classList.toggle('dark', dark);
+    localStorage.setItem('theme', dark ? 'dark' : 'light');
+  }, [dark]);
+  return [dark, setDark];
+}
+
 const INNOPOLIS = [55.7525, 48.7442];
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export default function PublicMapPage() {
   const navigate = useNavigate();
+  const [dark, setDark] = useTheme();
   const mapRef = useRef(null);
   const mapInstance = useRef(null);
   const markersRef = useRef([]);
@@ -85,15 +95,14 @@ export default function PublicMapPage() {
   const activeCount = incidents.filter(i => i.status === 'active').length;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', fontFamily: 'system-ui, sans-serif', background: '#f8fafc' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
       {/* Header */}
-      <header style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 20px', height: 56, background: '#1e293b', color: '#fff', flexShrink: 0,
-        boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Карта ЧС — Иннополис</span>
+      <header className="dashboard-header">
+        <div className="header-left">
+          <button className="btn-theme" onClick={() => setDark(d => !d)} title="Сменить тему">
+            {dark ? 'L' : 'D'}
+          </button>
+          <span className="header-title">Карта ЧС — Иннополис</span>
           {activeCount > 0 && (
             <span style={{
               background: '#ef4444', color: '#fff', borderRadius: 999,
@@ -103,19 +112,13 @@ export default function PublicMapPage() {
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div className="header-right">
           {lastUpdate && (
-            <span style={{ fontSize: 12, color: '#94a3b8', alignSelf: 'center' }}>
+            <span style={{ fontSize: 12, color: 'rgba(255,255,255,0.7)' }}>
               Обновлено: {lastUpdate.toLocaleTimeString('ru')}
             </span>
           )}
-          <button
-            onClick={() => navigate('/')}
-            style={{
-              background: '#3b82f6', color: '#fff', border: 'none',
-              borderRadius: 6, padding: '6px 14px', cursor: 'pointer', fontSize: 13, fontWeight: 600,
-            }}
-          >
+          <button className="btn-logout" onClick={() => navigate('/')}>
             Войти в портал
           </button>
         </div>
@@ -124,20 +127,24 @@ export default function PublicMapPage() {
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Sidebar */}
         <div style={{
-          width: 280, background: '#fff', borderRight: '1px solid #e2e8f0',
-          display: 'flex', flexDirection: 'column', overflow: 'hidden',
+          width: 280,
+          background: 'var(--bg-card)',
+          borderRight: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
         }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid #e2e8f0' }}>
-            <h3 style={{ margin: 0, fontSize: 14, color: '#1e293b', fontWeight: 700 }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
+            <h3 style={{ margin: 0, fontSize: 14, color: 'var(--text-main)', fontWeight: 700 }}>
               Инциденты ЧС
             </h3>
-            <p style={{ margin: '3px 0 0', fontSize: 12, color: '#64748b' }}>
+            <p style={{ margin: '3px 0 0', fontSize: 12, color: 'var(--text-muted)' }}>
               Активных: {activeCount} из {incidents.length}
             </p>
           </div>
           <div style={{ overflowY: 'auto', flex: 1 }}>
             {incidents.length === 0 && (
-              <p style={{ padding: 16, fontSize: 13, color: '#94a3b8', textAlign: 'center' }}>
+              <p style={{ padding: 16, fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
                 Нет активных инцидентов
               </p>
             )}
@@ -151,8 +158,8 @@ export default function PublicMapPage() {
                 style={{
                   padding: '12px 16px',
                   cursor: 'pointer',
-                  borderBottom: '1px solid #f1f5f9',
-                  background: selected?.id === inc.id ? '#f1f5f9' : 'transparent',
+                  borderBottom: '1px solid var(--border)',
+                  background: selected?.id === inc.id ? 'var(--bg-row-alt)' : 'transparent',
                   transition: 'background 0.15s',
                 }}
               >
@@ -161,15 +168,15 @@ export default function PublicMapPage() {
                     width: 10, height: 10, borderRadius: '50%',
                     background: inc.danger_color || '#ef4444', flexShrink: 0,
                   }} />
-                  <strong style={{ fontSize: 13, color: '#1e293b' }}>{inc.title}</strong>
+                  <strong style={{ fontSize: 13, color: 'var(--text-main)' }}>{inc.title}</strong>
                 </div>
                 {inc.emergency_type_name && (
-                  <p style={{ margin: '3px 0 0 18px', fontSize: 11, color: '#64748b' }}>
+                  <p style={{ margin: '3px 0 0 18px', fontSize: 11, color: 'var(--text-muted)' }}>
                     {inc.emergency_type_name}
                     {inc.danger_level_name && ` · ${inc.danger_level_name}`}
                   </p>
                 )}
-                <p style={{ margin: '2px 0 0 18px', fontSize: 11, color: inc.status === 'active' ? '#16a34a' : '#94a3b8' }}>
+                <p style={{ margin: '2px 0 0 18px', fontSize: 11, color: inc.status === 'active' ? '#16a34a' : 'var(--text-muted)' }}>
                   {inc.status === 'active' ? 'Активный' : 'Завершён'}
                 </p>
               </div>
@@ -185,20 +192,23 @@ export default function PublicMapPage() {
       {selected && (
         <div style={{
           position: 'fixed', bottom: 24, right: 24,
-          background: '#fff', border: '1px solid #e2e8f0',
-          borderRadius: 12, padding: '16px 20px',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: '16px 20px',
           minWidth: 260, maxWidth: 320,
-          boxShadow: '0 4px 24px rgba(0,0,0,0.12)', zIndex: 1000,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
+          zIndex: 1000,
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <strong style={{ fontSize: 15, color: '#1e293b' }}>{selected.title}</strong>
+            <strong style={{ fontSize: 15, color: 'var(--text-main)' }}>{selected.title}</strong>
             <button onClick={() => setSelected(null)} style={{
               background: 'none', border: 'none', cursor: 'pointer',
-              fontSize: 18, color: '#94a3b8', padding: 0, lineHeight: 1,
+              fontSize: 18, color: 'var(--text-muted)', padding: 0, lineHeight: 1,
             }}>×</button>
           </div>
           {selected.emergency_type_name && (
-            <p style={{ margin: '6px 0 0', fontSize: 13, color: '#64748b' }}>
+            <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text-muted)' }}>
               {selected.emergency_type_name}
             </p>
           )}
@@ -208,11 +218,11 @@ export default function PublicMapPage() {
             </p>
           )}
           {selected.description && (
-            <p style={{ margin: '8px 0 0', fontSize: 13, color: '#374151', lineHeight: 1.5 }}>
+            <p style={{ margin: '8px 0 0', fontSize: 13, color: 'var(--text-main)', lineHeight: 1.5 }}>
               {selected.description}
             </p>
           )}
-          <p style={{ margin: '8px 0 0', fontSize: 12, color: selected.status === 'active' ? '#16a34a' : '#94a3b8' }}>
+          <p style={{ margin: '8px 0 0', fontSize: 12, color: selected.status === 'active' ? '#16a34a' : 'var(--text-muted)' }}>
             Статус: {selected.status === 'active' ? 'Активный' : 'Завершён'}
           </p>
         </div>
