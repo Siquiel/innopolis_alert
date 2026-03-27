@@ -93,7 +93,6 @@ export default function PublicMapPage() {
         boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 20 }}>🗺️</span>
           <span style={{ fontWeight: 700, fontSize: 16 }}>Карта ЧС — Иннополис</span>
           {activeCount > 0 && (
             <span style={{
