@@ -1,0 +1,27 @@
+# Node
+node_modules/
+server/node_modules/
+client/node_modules/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+XAKATON-main/innopolis_emergency_bot/.venv/
+XAKATON-main/innopolis_emergency_bot/*.db
+XAKATON-main/innopolis_emergency_bot/reports/
+
+# Build
+client/dist/
+
+# Env files — НЕ пушим секреты
+.env
+server/.env
+XAKATON-main/innopolis_emergency_bot/.env
+
+# Uploads (медиафайлы не пушим)
+server/uploads/*
+!server/uploads/.gitkeep
+
+# Logs
+*.log

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Карта ЧС — InnoAlert</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #f1f5f9; height: 100vh; display: flex; flex-direction: column; }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 24px; height: 48px; background: #22c55e; flex-shrink: 0;
+    }
+    header .brand { font-weight: 700; font-size: 16px; color: #fff; }
+    header .sub { font-size: 12px; color: rgba(255,255,255,0.8); }
+
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    .sidebar {
+      width: 260px; background: #1e293b; border-right: 1px solid #334155;
+      display: flex; flex-direction: column; flex-shrink: 0;
+    }
+    .sidebar-head { padding: 12px 16px; border-bottom: 1px solid #334155; }
+    .sidebar-head h3 { font-size: 13px; font-weight: 700; color: #f1f5f9; }
+    .sidebar-head p { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+    .sidebar-list { overflow-y: auto; flex: 1; }
+
+    .incident-item {
+      padding: 10px 16px; border-bottom: 1px solid #334155;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .incident-item:hover { background: #263347; }
+    .incident-item.active { background: #263347; }
+    .inc-title { font-size: 13px; font-weight: 600; color: #f1f5f9; display: flex; align-items: center; gap: 7px; }
+    .inc-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .inc-meta { font-size: 11px; color: #94a3b8; margin-top: 3px; padding-left: 16px; }
+    .inc-status { font-size: 11px; margin-top: 2px; padding-left: 16px; }
+
+    #map { flex: 1; }
+
+    .detail-panel {
+      position: fixed; bottom: 20px; right: 20px;
+      background: #1e293b; border: 1px solid #334155; border-radius: 12px;
+      padding: 16px 18px; min-width: 240px; max-width: 300px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4); z-index: 1000;
+      display: none;
+    }
+    .detail-panel.visible { display: block; }
+    .detail-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .detail-title { font-size: 14px; font-weight: 700; color: #f1f5f9; }
+    .detail-close { background: none; border: none; cursor: pointer; color: #94a3b8; font-size: 18px; line-height: 1; padding: 0; }
+    .detail-type { font-size: 12px; color: #94a3b8; margin-top: 5px; }
+    .detail-level { font-size: 12px; font-weight: 600; margin-top: 3px; }
+    .detail-desc { font-size: 13px; color: #e2e8f0; margin-top: 8px; line-height: 1.5; }
+    .detail-status { font-size: 11px; margin-top: 6px; }
+
+    .empty { padding: 24px 16px; text-align: center; font-size: 13px; color: #94a3b8; }
+    .loading { padding: 16px; text-align: center; font-size: 13px; color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">InnoAlert — Карта ЧС</div>
+    <div class="sub">Только для просмотра</div>
+  </header>
+
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-head">
+        <h3>Инциденты</h3>
+        <p id="count-label">Загрузка...</p>
+      </div>
+      <div class="sidebar-list" id="sidebar-list">
+        <div class="loading">Загрузка данных...</div>
+      </div>
+    </div>
+    <div id="map"></div>
+  </div>
+
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-header">
+      <span class="detail-title" id="dp-title"></span>
+      <button class="detail-close" onclick="closeDetail()">×</button>
+    </div>
+    <div class="detail-type" id="dp-type"></div>
+    <div class="detail-level" id="dp-level"></div>
+    <div class="detail-desc" id="dp-desc"></div>
+    <div class="detail-status" id="dp-status"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    const INNOPOLIS = [55.7525, 48.7442];
+    let map, markers = [], selectedId = null;
+
+    map = L.map('map', { attributionControl: false }).setView(INNOPOLIS, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    async function loadIncidents() {
+      try {
+        const r = await fetch('/api/public/map/incidents');
+        const incidents = await r.json();
+        renderSidebar(incidents);
+        renderMarkers(incidents);
+      } catch(e) {
+        document.getElementById('sidebar-list').innerHTML = '<div class="empty">Ошибка загрузки данных</div>';
+      }
+    }
+
+    function renderSidebar(incidents) {
+      const active = incidents.filter(i => i.status === 'active').length;
+      document.getElementById('count-label').textContent = `Активных: ${active} из ${incidents.length}`;
+      const list = document.getElementById('sidebar-list');
+      if (!incidents.length) {
+        list.innerHTML = '<div class="empty">Нет данных о ЧС</div>';
+        return;
+      }
+      list.innerHTML = incidents.map(inc => `
+        <div class="incident-item" id="item-${inc.id}" onclick="selectIncident(${inc.id}, ${inc.lat}, ${inc.lon})">
+          <div class="inc-title">
+            <span class="inc-dot" style="background:${inc.danger_color || '#ef4444'}"></span>
+            ${escHtml(inc.title)}
+          </div>
+          ${inc.emergency_type_name ? `<div class="inc-meta">${escHtml(inc.emergency_type_name)}${inc.danger_level_name ? ' · ' + escHtml(inc.danger_level_name) : ''}</div>` : ''}
+          <div class="inc-status" style="color:${inc.status==='active'?'#4ade80':'#9ca3af'}">
+            ${inc.status === 'active' ? 'Активный' : 'Завершён'}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderMarkers(incidents) {
+      markers.forEach(m => m.remove());
+      markers = [];
+      window._incidents = incidents;
+      incidents.forEach(inc => {
+        const color = inc.danger_color || '#ef4444';
+        const m = L.circleMarker([inc.lat, inc.lon], {
+          radius: 12, fillColor: color, color: '#fff', weight: 2, opacity: 1, fillOpacity: 0.85
+        }).addTo(map);
+        m.bindTooltip(inc.title, { direction: 'top' });
+        m.on('click', () => {
+          selectIncident(inc.id, inc.lat, inc.lon);
+          showDetail(inc);
+        });
+        m._incId = inc.id;
+        markers.push(m);
+      });
+    }
+
+    function selectIncident(id, lat, lon) {
+      selectedId = id;
+      document.querySelectorAll('.incident-item').forEach(el => el.classList.remove('active'));
+      const el = document.getElementById('item-' + id);
+      if (el) el.classList.add('active');
+      map.setView([lat, lon], 15);
+      const inc = (window._incidents || []).find(i => i.id === id);
+      if (inc) showDetail(inc);
+    }
+
+    function showDetail(inc) {
+      document.getElementById('dp-title').textContent = inc.title;
+      document.getElementById('dp-type').textContent = inc.emergency_type_name || '';
+      const lvl = document.getElementById('dp-level');
+      lvl.textContent = inc.danger_level_name || '';
+      lvl.style.color = inc.danger_color || '#ef4444';
+      document.getElementById('dp-desc').textContent = inc.description || '';
+      const st = document.getElementById('dp-status');
+      st.textContent = 'Статус: ' + (inc.status === 'active' ? 'Активный' : 'Завершён');
+      st.style.color = inc.status === 'active' ? '#4ade80' : '#9ca3af';
+      document.getElementById('detail-panel').classList.add('visible');
+    }
+
+    function closeDetail() {
+      document.getElementById('detail-panel').classList.remove('visible');
+    }
+
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    loadIncidents();
+    setInterval(loadIncidents, 30000); // обновление каждые 30 сек
+  </script>
+</body>
+</html>

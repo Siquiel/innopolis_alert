@@ -1,0 +1,1438 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Карта опасностей - Иннополис ЧС</title>
+
+    <!-- Leaflet -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", Arial, sans-serif;
+        background: #f8f9fa;
+      }
+
+      .container {
+        display: flex;
+        height: 100vh;
+      }
+
+      .sidebar {
+        width: 450px;
+        background: white;
+        padding: 0;
+        overflow-y: auto;
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.08);
+        z-index: 1000;
+      }
+
+      /* ЛОГОТИП - во всю ширину */
+      .logo-container {
+        width: 100%;
+        background: white;
+        padding: 25px 30px;
+        border-bottom: 2px solid #e8f5e9;
+      }
+
+      .logo {
+        width: 100%;
+        max-height: 120px;
+        object-fit: contain;
+        display: block;
+      }
+
+      .header-text {
+        margin-top: 15px;
+      }
+
+      .header-text h1 {
+        color: #2d3748;
+        font-size: 22px;
+        font-weight: 700;
+        margin-bottom: 4px;
+        letter-spacing: -0.3px;
+      }
+
+      .subtitle {
+        color: #718096;
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      /* КОНТЕНТ ВНУТРИ SIDEBAR */
+      .sidebar-content {
+        padding: 30px;
+      }
+
+      /* ВКЛАДКИ - спокойные */
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 30px;
+        background: #f7fafc;
+        padding: 6px;
+        border-radius: 12px;
+      }
+
+      .tab-btn {
+        flex: 1;
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 600;
+        transition: all 0.3s;
+        background: transparent;
+        color: #718096;
+      }
+
+      .tab-btn.active {
+        background: white;
+        color: #2ed573;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      }
+
+      .tab-btn:hover:not(.active) {
+        background: #edf2f7;
+        color: #4a5568;
+      }
+
+      .tab-content {
+        display: none;
+      }
+
+      .tab-content.active {
+        display: block;
+      }
+
+      /* СТАТИСТИКА - СЕРАЯ */
+      .stats {
+        margin-bottom: 30px;
+      }
+
+      .stat-box {
+        background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+        color: white;
+        padding: 25px;
+        border-radius: 16px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(113, 128, 144, 0.2);
+      }
+
+      .stat-number {
+        font-size: 48px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        letter-spacing: -1px;
+      }
+
+      .stat-label {
+        font-size: 14px;
+        opacity: 0.95;
+        font-weight: 500;
+      }
+
+      /* ФИЛЬТРЫ - спокойные, не яркие */
+      .filter-section {
+        margin-bottom: 30px;
+      }
+
+      .filter-section h3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: #718096;
+        margin-bottom: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .filter-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .filter-btn {
+        padding: 8px 16px;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 13px;
+        font-weight: 600;
+        background: white;
+        color: #4a5568;
+      }
+
+      .filter-btn:hover {
+        border-color: #2ed573;
+        color: #2ed573;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(46, 213, 115, 0.15);
+      }
+
+      .filter-btn.active {
+        background: #2ed573;
+        color: white;
+        border-color: #2ed573;
+        box-shadow: 0 2px 8px rgba(46, 213, 115, 0.3);
+      }
+
+      .filter-btn.disabled {
+        opacity: 0.5;
+      }
+
+      /* СПИСОК ЧС */
+      .emergency-list {
+        margin-top: 25px;
+      }
+
+      .emergency-list h3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: #718096;
+        margin-bottom: 15px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .emergency-card {
+        background: white;
+        border: 1.5px solid #e8f5e9;
+        padding: 16px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+        border-left: 4px solid #2ed573;
+      }
+
+      .emergency-card:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(46, 213, 115, 0.15);
+        border-color: #2ed573;
+      }
+
+      .emergency-card.fire {
+        border-left-color: #e53e3e;
+      }
+      .emergency-card.power {
+        border-left-color: #dd6b20;
+      }
+      .emergency-card.gas {
+        border-left-color: #d69e2e;
+      }
+      .emergency-card.accident {
+        border-left-color: #3182ce;
+      }
+      .emergency-card.drone {
+        border-left-color: #805ad5;
+      }
+      .emergency-card.weather {
+        border-left-color: #2ed573;
+      }
+      .emergency-card.other {
+        border-left-color: #718096;
+      }
+
+      .emergency-card.no-location {
+        border-left-style: dashed;
+        opacity: 0.85;
+      }
+
+      .emergency-card h4 {
+        margin-bottom: 6px;
+        color: #2d3748;
+        font-size: 15px;
+        font-weight: 600;
+      }
+
+      .emergency-card p {
+        font-size: 13px;
+        color: #718096;
+        margin: 4px 0;
+        line-height: 1.5;
+      }
+
+      .emergency-card .time {
+        font-size: 11px;
+        color: #a0aec0;
+        margin-top: 8px;
+        font-weight: 500;
+      }
+
+      .emergency-card .type-label {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        margin-bottom: 8px;
+        color: white;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+
+      .type-label.fire {
+        background: #e53e3e;
+      }
+      .type-label.power {
+        background: #dd6b20;
+      }
+      .type-label.gas {
+        background: #d69e2e;
+      }
+      .type-label.accident {
+        background: #3182ce;
+      }
+      .type-label.drone {
+        background: #805ad5;
+      }
+      .type-label.weather {
+        background: #2ed573;
+      }
+      .type-label.other {
+        background: #718096;
+      }
+
+      /* AI РЕКОМЕНДАЦИИ */
+      .ai-recommendations {
+        background: #f7fafc;
+        border: 2px solid #e8f5e9;
+        border-radius: 16px;
+        padding: 20px;
+        margin-top: 25px;
+        display: none;
+      }
+
+      .ai-recommendations.show {
+        display: block;
+        animation: slideIn 0.3s ease;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .ai-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 20px;
+        color: #2ed573;
+        font-weight: 700;
+        font-size: 16px;
+        padding-bottom: 12px;
+        border-bottom: 2px solid #e8f5e9;
+      }
+
+      .ai-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 15px;
+      }
+
+      .ai-section {
+        margin-bottom: 18px;
+      }
+
+      .ai-section-title {
+        font-size: 12px;
+        font-weight: 700;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .ai-do {
+        background: linear-gradient(135deg, #c6f6d5 0%, #9ae6b4 100%);
+        color: #22543d;
+        padding: 14px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+      }
+
+      .ai-do .ai-section-title {
+        color: #22543d;
+      }
+
+      .ai-dont {
+        background: linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%);
+        color: #742a2a;
+        padding: 14px;
+        border-radius: 10px;
+        margin-bottom: 12px;
+      }
+
+      .ai-dont .ai-section-title {
+        color: #742a2a;
+      }
+
+      .ai-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      .ai-list li {
+        padding: 8px 12px;
+        margin: 4px 0;
+        background: rgba(255, 255, 255, 0.6);
+        border-radius: 6px;
+        font-size: 13px;
+        line-height: 1.5;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .ai-list li:before {
+        content: "✓";
+        font-weight: bold;
+        font-size: 14px;
+        flex-shrink: 0;
+        width: 18px;
+        height: 18px;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .ai-dont .ai-list li:before {
+        content: "✕";
+      }
+
+      .ai-contacts {
+        background: white;
+        border: 2px solid #e8f5e9;
+        border-radius: 10px;
+        padding: 14px;
+        margin-top: 12px;
+      }
+
+      .ai-contacts .ai-section-title {
+        color: #2ed573;
+        font-size: 12px;
+        margin-bottom: 10px;
+      }
+
+      .ai-contact-item {
+        padding: 6px 0;
+        font-size: 13px;
+        color: #4a5568;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .ai-contact-item:last-child {
+        border-bottom: none;
+      }
+
+      .ai-contact-label {
+        font-weight: 600;
+        color: #2ed573;
+        display: inline-block;
+        width: 130px;
+      }
+
+      /* ПОГОДА */
+      .weather-section {
+        margin-bottom: 25px;
+      }
+
+      .current-weather {
+        background: linear-gradient(135deg, #2ed573 0%, #26b965 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 16px;
+        margin-bottom: 20px;
+        text-align: center;
+        box-shadow: 0 4px 15px rgba(46, 213, 115, 0.25);
+      }
+
+      .weather-icon {
+        font-size: 64px;
+        margin-bottom: 10px;
+      }
+
+      .temp {
+        font-size: 48px;
+        font-weight: 700;
+        margin: 10px 0;
+        letter-spacing: -1px;
+      }
+
+      .weather-desc {
+        font-size: 18px;
+        opacity: 0.95;
+        margin-bottom: 15px;
+        font-weight: 500;
+      }
+
+      .weather-details {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .weather-detail {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 12px;
+        border-radius: 10px;
+        text-align: center;
+        backdrop-filter: blur(10px);
+      }
+
+      .weather-detail-label {
+        font-size: 11px;
+        opacity: 0.9;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .weather-detail-value {
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .forecast {
+        margin-top: 20px;
+      }
+
+      .forecast h3 {
+        color: #2d3748;
+        margin-bottom: 15px;
+        font-size: 16px;
+        font-weight: 700;
+      }
+
+      .forecast-day {
+        background: white;
+        border: 1.5px solid #e8f5e9;
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: all 0.3s;
+      }
+
+      .forecast-day:hover {
+        border-color: #2ed573;
+        box-shadow: 0 2px 8px rgba(46, 213, 115, 0.1);
+      }
+
+      .forecast-day-icon {
+        font-size: 40px;
+        width: 60px;
+        text-align: center;
+      }
+
+      .forecast-day-info {
+        flex: 1;
+      }
+
+      .forecast-day-name {
+        font-weight: 700;
+        color: #2d3748;
+        margin-bottom: 5px;
+        font-size: 14px;
+      }
+
+      .forecast-day-temp {
+        color: #718096;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .forecast-day-temp .high {
+        color: #e53e3e;
+        font-weight: 700;
+      }
+
+      .forecast-day-temp .low {
+        color: #3182ce;
+        font-weight: 700;
+      }
+
+      .forecast-day-desc {
+        font-size: 12px;
+        color: #a0aec0;
+        margin-top: 5px;
+      }
+
+      .weather-alert {
+        background: #fffaf0;
+        border: 2px solid #fbd38d;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        color: #744210;
+      }
+
+      .weather-alert.danger {
+        background: #fff5f5;
+        border-color: #fc8181;
+        color: #742a2a;
+      }
+
+      /* КАРТА */
+      #map {
+        flex: 1;
+        height: 100%;
+      }
+
+      .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #a0aec0;
+      }
+
+      .leaflet-control-attribution,
+      .leaflet-bottom.leaflet-right {
+        display: none !important;
+      }
+
+      .alert-banner {
+        background: linear-gradient(135deg, #e53e3e 0%, #c53030 100%);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        animation: pulse 2s infinite;
+        box-shadow: 0 4px 12px rgba(229, 62, 62, 0.3);
+        font-weight: 600;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.85;
+        }
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        color: #a0aec0;
+      }
+
+      .loading-spinner {
+        border: 4px solid #e8f5e9;
+        border-top: 4px solid #2ed573;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 15px;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* СКРОЛЛБАР */
+      .sidebar::-webkit-scrollbar {
+        width: 6px;
+      }
+
+      .sidebar::-webkit-scrollbar-track {
+        background: #f7fafc;
+      }
+
+      .sidebar::-webkit-scrollbar-thumb {
+        background: #cbd5e0;
+        border-radius: 3px;
+      }
+
+      .sidebar::-webkit-scrollbar-thumb:hover {
+        background: #a0aec0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="sidebar">
+        <!-- ЛОГОТИП - ВО ВСЮ ШИРИНУ -->
+        <div class="logo-container">
+          <img
+            src="{{ url_for('static', filename='innopolis_logo.png') }}"
+            alt="Иннополис"
+            class="logo"
+          />
+          <div class="header-text">
+            <h1>Карта опасностей</h1>
+            <p class="subtitle">
+              Система мониторинга чрезвычайных ситуаций<br />Иннополиса
+            </p>
+          </div>
+        </div>
+
+        <div class="sidebar-content">
+          <!-- ВКЛАДКИ -->
+          <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('map')">
+              Карта
+            </button>
+            <button class="tab-btn" onclick="switchTab('weather')">
+              Погода
+            </button>
+          </div>
+
+          <!-- ВКЛАДКА: КАРТА -->
+          <div id="mapTab" class="tab-content active">
+            <div class="stats">
+              <div class="stat-box">
+                <div class="stat-number" id="activeEmergencies">0</div>
+                <div class="stat-label">Активных чрезвычайных ситуаций</div>
+              </div>
+            </div>
+
+            <div class="filter-section">
+              <h3>Фильтр по типам</h3>
+              <div class="filter-buttons">
+                <button class="filter-btn fire" onclick="toggleFilter('fire')">
+                  Пожар
+                </button>
+                <button
+                  class="filter-btn power"
+                  onclick="toggleFilter('power')"
+                >
+                  Электричество
+                </button>
+                <button class="filter-btn gas" onclick="toggleFilter('gas')">
+                  Газ
+                </button>
+                <button
+                  class="filter-btn accident"
+                  onclick="toggleFilter('accident')"
+                >
+                  ДТП
+                </button>
+                <button
+                  class="filter-btn drone"
+                  onclick="toggleFilter('drone')"
+                >
+                  БПЛА
+                </button>
+                <button
+                  class="filter-btn weather"
+                  onclick="toggleFilter('weather')"
+                >
+                  Погода
+                </button>
+                <button
+                  class="filter-btn other"
+                  onclick="toggleFilter('other')"
+                >
+                  Прочее
+                </button>
+              </div>
+            </div>
+
+            <!-- Баннер для БПЛА -->
+            <div id="droneAlert" class="alert-banner" style="display: none">
+              ВНИМАНИЕ! Обнаружена угроза БПЛА! Рекомендуется укрыться в
+              безопасном месте.
+            </div>
+
+            <!-- AI РЕКОМЕНДАЦИИ -->
+            <div class="ai-recommendations" id="aiRecommendations">
+              <div class="ai-header">
+                <span>AI-рекомендации при ЧС</span>
+              </div>
+              <div id="aiContent"></div>
+            </div>
+
+            <div class="emergency-list">
+              <h3>Список происшествий</h3>
+              <div id="emergencyList">
+                <div class="empty-state"><p>Загрузка...</p></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ВКЛАДКА: ПОГОДА -->
+          <div id="weatherTab" class="tab-content">
+            <div class="weather-section">
+              <div id="currentWeather">
+                <div class="loading">
+                  <div class="loading-spinner"></div>
+                  <p>Загрузка погоды...</p>
+                </div>
+              </div>
+
+              <div id="weatherAlerts"></div>
+
+              <div class="forecast" id="forecast">
+                <h3>Прогноз на 2 дня</h3>
+                <div class="loading">
+                  <div class="loading-spinner"></div>
+                  <p>Загрузка прогноза...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="map"></div>
+    </div>
+
+    <script>
+      let map;
+      let markers = {};
+      let emergencies = [];
+      let activeFilters = {
+        fire: true,
+        power: true,
+        gas: true,
+        accident: true,
+        drone: true,
+        weather: true,
+        other: true,
+      };
+
+      const colors = {
+        fire: "#e53e3e",
+        power: "#dd6b20",
+        gas: "#d69e2e",
+        accident: "#3182ce",
+        drone: "#805ad5",
+        weather: "#2ed573",
+        other: "#718096",
+      };
+
+      const weatherIcons = {
+        clear: "☀️",
+        clouds: "☁️",
+        rain: "🌧",
+        drizzle: "🌦",
+        thunderstorm: "⛈",
+        snow: "❄️",
+        mist: "🌫",
+        smoke: "🌫",
+        haze: "🌫",
+        dust: "🌪",
+        fog: "🌫",
+        sand: "🏜",
+        ash: "🌋",
+        squall: "💨",
+        tornado: "🌪",
+      };
+
+      // AI РЕКОМЕНДАЦИИ
+      const aiRecommendations = {
+        fire: {
+          title: "Пожар",
+          actions: [
+            "Немедленно покиньте помещение, закройте за собой двери",
+            "Пригнитесь к полу - дым поднимается вверх",
+            "Если одежда загорелась - падайте и катайтесь по земле",
+            "Не пользуйтесь лифтом",
+            "Позвоните 101 или 112",
+            "Если заперты - сигнализируйте из окна",
+          ],
+          dangers: [
+            "Не открывайте окна - это усилит огонь",
+            "Не прячьтесь в шкафах и под кроватями",
+            "Не пытайтесь тушить большой пожар самостоятельно",
+          ],
+          contacts: [
+            { label: "Пожарная служба", value: "101" },
+            { label: "Единый номер", value: "112" },
+            { label: "Скорая помощь", value: "103" },
+          ],
+        },
+        gas: {
+          title: "Утечка газа",
+          actions: [
+            "Немедленно перекройте газовый кран",
+            "Откройте окна для проветривания",
+            "Не включайте свет и электроприборы",
+            "Не пользуйтесь открытым огнём",
+            "Покиньте помещение",
+            "Позвоните в газовую службу",
+          ],
+          dangers: [
+            "Не курите и не зажигайте спички",
+            "Не включайте/выключайте электроприборы",
+            "Не пользуйтесь мобильным телефоном в помещении",
+          ],
+          contacts: [
+            { label: "Аварийная газовая", value: "104" },
+            { label: "Единый номер", value: "112" },
+            { label: "Скорая помощь", value: "103" },
+          ],
+        },
+        accident: {
+          title: "ДТП",
+          actions: [
+            "Включите аварийную сигнализацию",
+            "Выставьте знак аварийной остановки",
+            "Проверьте состояние пострадавших",
+            "Окажите первую помощь (если умеете)",
+            "Вызовите скорую (103) и ГИБДД",
+            "Не перемещайте пострадавших без необходимости",
+          ],
+          dangers: [
+            "Не стойте на проезжей части",
+            "Осторожно - возможна утечка топлива",
+            "Не давайте пострадавшим воду и лекарства",
+          ],
+          contacts: [
+            { label: "ГИБДД", value: "102" },
+            { label: "Скорая помощь", value: "103" },
+            { label: "Единый номер", value: "112" },
+          ],
+        },
+        drone: {
+          title: "Угроза БПЛА",
+          actions: [
+            "Немедленно спуститесь в укрытие/подвал",
+            "Отойдите от окон",
+            "Отключите источники света",
+            "Сохраняйте спокойствие",
+            "Следите за официальными сообщениями",
+            "Не используйте средства ПВО самостоятельно",
+          ],
+          dangers: [
+            "Не фотографируйте и не снимайте БПЛА",
+            "Не распространяйте панику",
+            "Не выходите на улицу",
+          ],
+          contacts: [
+            { label: "Единый номер", value: "112" },
+            { label: "Скорая помощь", value: "103" },
+            { label: "Пожарная служба", value: "101" },
+          ],
+        },
+        power: {
+          title: "Отключение электричества",
+          actions: [
+            "Отключите электроприборы от сети",
+            "Используйте фонарики вместо свечей",
+            "Откройте холодильник только при необходимости",
+            "Проверьте, не произошло ли возгорание",
+            "Сообщите в управляющую компанию",
+            "Зарядите мобильные устройства",
+          ],
+          dangers: [
+            "Не оставляйте включённые приборы без присмотра",
+            "Осторожно при использовании свечей",
+            "Не открывайте холодильник часто",
+          ],
+          contacts: [
+            { label: "Энергослужба", value: "уточните в УК" },
+            { label: "Единый номер", value: "112" },
+            { label: "Скорая помощь", value: "103" },
+          ],
+        },
+        weather: {
+          title: "Погодные условия",
+          actions: [
+            "Оставайтесь дома",
+            "Закройте окна и двери",
+            "Уберите вещи с балконов",
+            "Не паркуйте авто под деревьями",
+            "Зарядите телефоны",
+            "Подготовьте фонарик и воду",
+          ],
+          dangers: [
+            "Не выходите на улицу без необходимости",
+            "Остерегайтесь падающих деревьев",
+            "Избегайте рекламных щитов и ЛЭП",
+          ],
+          contacts: [
+            { label: "Единый номер", value: "112" },
+            { label: "Скорая помощь", value: "103" },
+            { label: "Пожарная служба", value: "101" },
+          ],
+        },
+        other: {
+          title: "Прочее",
+          actions: [
+            "Оцените ситуацию",
+            "Обеспечьте свою безопасность",
+            "Вызовите соответствующие службы",
+            "Сообщите соседям",
+            "Следуйте инструкциям операторов",
+            "Документируйте происшествие",
+          ],
+          dangers: [
+            "Не подвергайте себя опасности",
+            "Не распространяйте непроверенную информацию",
+          ],
+          contacts: [
+            { label: "Единый номер", value: "112" },
+            { label: "Скорая помощь", value: "103" },
+            { label: "Пожарная служба", value: "101" },
+          ],
+        },
+      };
+
+      // === ИНИЦИАЛИЗАЦИЯ КАРТЫ ===
+      function initMap() {
+        map = L.map("map", {
+          attributionControl: false,
+        }).setView([55.751244, 48.732884], 15);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "",
+          maxZoom: 19,
+        }).addTo(map);
+      }
+
+      // === ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ===
+      function switchTab(tab) {
+        const tabs = document.querySelectorAll(".tab-btn");
+        const contents = document.querySelectorAll(".tab-content");
+
+        tabs.forEach((t) => t.classList.remove("active"));
+        contents.forEach((c) => c.classList.remove("active"));
+
+        if (tab === "map") {
+          tabs[0].classList.add("active");
+          document.getElementById("mapTab").classList.add("active");
+          if (map) map.invalidateSize();
+        } else if (tab === "weather") {
+          tabs[1].classList.add("active");
+          document.getElementById("weatherTab").classList.add("active");
+          loadWeather();
+        }
+      }
+
+      // === ЗАГРУЗКА ПОГОДЫ ===
+      async function loadWeather() {
+        try {
+          const response = await fetch("/api/weather");
+          const data = await response.json();
+
+          displayCurrentWeather(data.weather);
+          displayWeatherAlerts(data.dangers);
+          displayForecast(data.forecast);
+        } catch (error) {
+          console.error("Ошибка загрузки погоды:", error);
+          document.getElementById("currentWeather").innerHTML = `
+                    <div class="current-weather">
+                        <div class="weather-icon">⚠️</div>
+                        <div class="temp">--°</div>
+                        <div class="weather-desc">Ошибка загрузки</div>
+                    </div>
+                `;
+        }
+      }
+
+      function displayCurrentWeather(weather) {
+        if (!weather) {
+          document.getElementById("currentWeather").innerHTML = `
+                    <div class="current-weather">
+                        <div class="weather-icon">⚠️</div>
+                        <div class="temp">--°</div>
+                        <div class="weather-desc">Нет данных</div>
+                    </div>
+                `;
+          return;
+        }
+
+        const icon = weather.icon || "☀️";
+        const temp = Math.round(weather.temp);
+        const feelsLike = Math.round(weather.feels_like);
+        const desc = weather.description || "Ясно";
+
+        document.getElementById("currentWeather").innerHTML = `
+                <div class="current-weather">
+                    <div class="weather-icon">${icon}</div>
+                    <div class="temp">${temp > 0 ? "+" : ""}${temp}°</div>
+                    <div class="weather-desc">${desc}</div>
+                    <div style="font-size: 14px; opacity: 0.9; margin-top: 10px;">
+                        Ощущается как ${feelsLike > 0 ? "+" : ""}${feelsLike}°
+                    </div>
+                    
+                    <div class="weather-details">
+                        <div class="weather-detail">
+                            <div class="weather-detail-label">Влажность</div>
+                            <div class="weather-detail-value">${weather.humidity}%</div>
+                        </div>
+                        <div class="weather-detail">
+                            <div class="weather-detail-label">Ветер</div>
+                            <div class="weather-detail-value">${weather.wind_speed} м/с</div>
+                        </div>
+                        <div class="weather-detail">
+                            <div class="weather-detail-label">Давление</div>
+                            <div class="weather-detail-value">${weather.pressure || "--"} гПа</div>
+                        </div>
+                        <div class="weather-detail">
+                            <div class="weather-detail-label">Видимость</div>
+                            <div class="weather-detail-value">${weather.visibility || "--"} км</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+      }
+
+      function displayWeatherAlerts(dangers) {
+        const container = document.getElementById("weatherAlerts");
+
+        if (!dangers || dangers.length === 0) {
+          container.innerHTML = "";
+          return;
+        }
+
+        container.innerHTML = dangers
+          .map(
+            (danger) => `
+                <div class="weather-alert ${danger.level === "danger" ? "danger" : ""}">
+                    <strong>⚠️ ${danger.message}</strong>
+                </div>
+            `,
+          )
+          .join("");
+      }
+
+      function displayForecast(forecast) {
+        const container = document.getElementById("forecast");
+
+        if (!forecast || forecast.length === 0) {
+          container.innerHTML =
+            '<h3>Прогноз на 2 дня</h3><p style="text-align: center; color: #999;">Прогноз недоступен</p>';
+          return;
+        }
+
+        const days = forecast.slice(0, 2);
+
+        container.innerHTML = `
+                <h3>Прогноз на 2 дня</h3>
+                ${days
+                  .map((day, index) => {
+                    const date = new Date(day.date);
+                    const dayName =
+                      index === 0
+                        ? "Завтра"
+                        : date.toLocaleDateString("ru-RU", {
+                            weekday: "long",
+                            day: "numeric",
+                            month: "long",
+                          });
+                    const icon = weatherIcons[day.condition] || "☀️";
+                    const tempHigh = Math.round(day.temp_max);
+                    const tempLow = Math.round(day.temp_min);
+                    const desc = day.description || "";
+
+                    return `
+                        <div class="forecast-day">
+                            <div class="forecast-day-icon">${icon}</div>
+                            <div class="forecast-day-info">
+                                <div class="forecast-day-name">${dayName}</div>
+                                <div class="forecast-day-temp">
+                                    <span class="high">+${tempHigh}°</span> / 
+                                    <span class="low">+${tempLow}°</span>
+                                </div>
+                                <div class="forecast-day-desc">${desc}</div>
+                            </div>
+                        </div>
+                    `;
+                  })
+                  .join("")}
+            `;
+      }
+
+      // === ПОКАЗ AI РЕКОМЕНДАЦИЙ ===
+      function showAIRecommendations(type) {
+        const rec = aiRecommendations[type];
+        if (!rec) return;
+
+        const container = document.getElementById("aiRecommendations");
+        const content = document.getElementById("aiContent");
+
+        content.innerHTML = `
+                <div class="ai-title">${rec.title}</div>
+                
+                <div class="ai-section">
+                    <div class="ai-do">
+                        <div class="ai-section-title">ЧТО НУЖНО ДЕЛАТЬ</div>
+                        <ul class="ai-list">
+                            ${rec.actions.map((action) => `<li>${action}</li>`).join("")}
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="ai-section">
+                    <div class="ai-dont">
+                        <div class="ai-section-title">ЧЕГО НЕЛЬЗЯ ДЕЛАТЬ</div>
+                        <ul class="ai-list">
+                            ${rec.dangers.map((danger) => `<li>${danger}</li>`).join("")}
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="ai-contacts">
+                    <div class="ai-section-title">ЭКСТРЕННЫЕ НОМЕРА</div>
+                    ${rec.contacts
+                      .map(
+                        (contact) => `
+                        <div class="ai-contact-item">
+                            <span class="ai-contact-label">${contact.label}:</span>
+                            <strong>${contact.value}</strong>
+                        </div>
+                    `,
+                      )
+                      .join("")}
+                </div>
+            `;
+
+        container.classList.add("show");
+        container.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      }
+
+      function hideAIRecommendations() {
+        document.getElementById("aiRecommendations").classList.remove("show");
+      }
+
+      // === РЕНДЕР МЕТКИ НА КАРТЕ ===
+      function renderMarkers() {
+        // Очищаем старые метки
+        Object.values(markers).forEach((m) => map.removeLayer(m));
+        markers = {};
+
+        emergencies.forEach((emi) => {
+          // Пропускаем если фильтр выключен или нет координат
+          if (
+            !activeFilters[emi.type] ||
+            emi.type === "drone" ||
+            !emi.lat ||
+            !emi.lon
+          ) {
+            return;
+          }
+
+          const circle = L.circleMarker([emi.lat, emi.lon], {
+            radius: 15,
+            fillColor: colors[emi.type],
+            color: "#fff",
+            weight: 3,
+            opacity: 1,
+            fillOpacity: 0.8,
+          }).addTo(map);
+
+          circle.bindPopup(`
+                    <div style="min-width: 200px;">
+                        <h3 style="margin: 0 0 10px 0; color: ${colors[emi.type]};">
+                            ${emi.title}
+                        </h3>
+                        <p style="margin: 5px 0;"><strong>Тип:</strong> ${getTypeName(emi.type)}</p>
+                        <p style="margin: 5px 0;"><strong>Описание:</strong> ${emi.description}</p>
+                        <p style="margin: 5px 0; font-size: 12px; color: #666;">
+                            ${new Date(emi.timestamp).toLocaleString("ru-RU")}
+                        </p>
+                    </div>
+                `);
+
+          markers[emi.id] = circle;
+        });
+      }
+
+      // === ЗАГРУЗКА ДАННЫХ ===
+      async function loadInitialData() {
+        try {
+          const response = await fetch("/api/emergencies");
+          const data = await response.json();
+
+          if (data && data.length > 0) {
+            emergencies = data;
+          } else {
+            emergencies = [...testEmergencies];
+          }
+        } catch (error) {
+          console.log("Используем тестовые данные");
+          emergencies = [...testEmergencies];
+        }
+
+        renderMarkers();
+        updateList();
+        updateStats();
+        checkDroneAlert();
+      }
+
+      function updateList() {
+        const list = document.getElementById("emergencyList");
+        const filtered = emergencies.filter((e) => activeFilters[e.type]);
+
+        if (filtered.length === 0) {
+          list.innerHTML =
+            '<div class="empty-state"><p>Нет активных происшествий</p></div>';
+          return;
+        }
+
+        list.innerHTML = "";
+        filtered.forEach((emi) => {
+          const card = document.createElement("div");
+          const hasLocation = emi.lat && emi.lon;
+          card.className = `emergency-card ${emi.type}${hasLocation ? "" : " no-location"}`;
+
+          let locationInfo = "";
+          if (!hasLocation) {
+            locationInfo =
+              '<p style="font-size: 12px; color: #999; font-style: italic;">📍 Распространяется на всю территорию</p>';
+          }
+
+          card.innerHTML = `
+                    <span class="type-label ${emi.type}">${getTypeName(emi.type)}</span>
+                    <h4>${emi.title}</h4>
+                    <p>${emi.description}</p>
+                    ${locationInfo}
+                    <p class="time">${new Date(emi.timestamp).toLocaleString("ru-RU")}</p>
+                `;
+
+          if (hasLocation && emi.type !== "drone") {
+            card.onclick = () => {
+              map.setView([emi.lat, emi.lon], 16);
+              if (markers[emi.id]) markers[emi.id].openPopup();
+              showAIRecommendations(emi.type);
+            };
+          } else {
+            card.onclick = () => showAIRecommendations(emi.type);
+          }
+
+          list.appendChild(card);
+        });
+      }
+
+      function updateStats() {
+        document.getElementById("activeEmergencies").textContent =
+          emergencies.filter((e) => e.status === "active").length;
+      }
+
+      function getTypeName(type) {
+        const names = {
+          fire: "Пожар",
+          power: "Отключение электричества",
+          gas: "Утечка газа",
+          accident: "ДТП",
+          drone: "Угроза БПЛА",
+          weather: "Погодные условия",
+          other: "Прочее",
+        };
+        return names[type] || type;
+      }
+
+      function toggleFilter(type) {
+        activeFilters[type] = !activeFilters[type];
+        const btn = document.querySelector(`.filter-btn.${type}`);
+        btn.classList.toggle("active");
+        btn.classList.toggle("disabled");
+        renderMarkers();
+        updateList();
+        checkDroneAlert();
+      }
+
+      function checkDroneAlert() {
+        const droneActive = emergencies.some(
+          (e) =>
+            e.type === "drone" && e.status === "active" && activeFilters.drone,
+        );
+        document.getElementById("droneAlert").style.display = droneActive
+          ? "block"
+          : "none";
+      }
+
+      // ТЕСТОВЫЕ ДАННЫЕ
+      const testEmergencies = [
+        {
+          id: 1,
+          type: "fire",
+          title: "Пожар в жилом доме",
+          description: "Горит квартира на 3 этаже, требуется эвакуация",
+          lat: 55.751244,
+          lon: 48.732884,
+          timestamp: new Date().toISOString(),
+          status: "active",
+        },
+        {
+          id: 2,
+          type: "drone",
+          title: "Угроза атаки БПЛА",
+          description: "Обнаружен беспилотник в воздушном пространстве",
+          timestamp: new Date().toISOString(),
+          status: "active",
+        },
+        {
+          id: 3,
+          type: "accident",
+          title: "Крупное ДТП",
+          description: "Столкнулись 3 автомобиля, перекрыта полоса движения",
+          lat: 55.7505,
+          lon: 48.734,
+          timestamp: new Date().toISOString(),
+          status: "active",
+        },
+        {
+          id: 4,
+          type: "gas",
+          title: "Утечка газа",
+          description: "Повреждение газопровода, ведётся ремонт",
+          lat: 55.753,
+          lon: 48.735,
+          timestamp: new Date().toISOString(),
+          status: "active",
+        },
+      ];
+
+      // Автообновление
+      setInterval(() => {
+        fetch("/api/emergencies")
+          .then((r) => r.json())
+          .then((data) => {
+            if (data && data.length > 0) {
+              emergencies = data;
+              renderMarkers();
+              updateList();
+              updateStats();
+              checkDroneAlert();
+            }
+          })
+          .catch(() => {});
+      }, 10000);
+
+      // Инициализация при загрузке
+      window.addEventListener("load", function () {
+        initMap();
+        loadInitialData();
+      });
+    </script>
+  </body>
+</html>

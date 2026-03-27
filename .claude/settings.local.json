@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Read(//c/Users/ggam4/**)",
+      "Bash(.venv/Scripts/python.exe -c \":*)",
+      "Bash(tasklist /fi 'IMAGENAME eq python.exe')"
+    ]
+  }
+}
