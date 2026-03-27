@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import logoSrc from '../assets/logo.png';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -51,7 +52,7 @@ export default function Login() {
     <div className="login-page">
       {/* Левая панель — брендинг */}
       <div className="login-brand">
-        <img src="/logo.png" alt="InnoAlert" style={{ width: '320px', maxWidth: '80%', filter: 'brightness(0) invert(1)', marginBottom: '24px' }} />
+        <img src={logoSrc} alt="InnoAlert" style={{ width: '320px', maxWidth: '80%', filter: 'brightness(0) invert(1)', marginBottom: '24px' }} />
         <h2 className="login-brand-title">InnoAlert</h2>
         <p className="login-brand-sub">Система оповещения об экстренных ситуациях</p>
       </div>
