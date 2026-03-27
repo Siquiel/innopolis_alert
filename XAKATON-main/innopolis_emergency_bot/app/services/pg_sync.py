@@ -11,7 +11,12 @@ from aiogram.types import FSInputFile
 from app.services.notifier import build_buttons_markup, send_rich_message
 
 # Папка с загруженными файлами веб-сервера
-_SERVER_UPLOADS = pathlib.Path(__file__).parents[4] / "server" / "uploads"
+_parents = pathlib.Path(__file__).parents
+_SERVER_UPLOADS = (
+    _parents[4] / "server" / "uploads"
+    if len(_parents) > 4
+    else pathlib.Path("/app") / "server" / "uploads"
+)
 
 
 def _resolve_media(media_url: str | None):
